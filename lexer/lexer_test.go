@@ -246,6 +246,9 @@ func TestNextToken6(t *testing.T) {
 2 <= 5
 8 >= 1
 2 ** 2
+
+a && b
+a || b
 `
 	tests := []struct {
 		expectedType    token.TokenType
@@ -276,6 +279,13 @@ func TestNextToken6(t *testing.T) {
 		{token.NUM, "2"},
 		{token.POWER, "**"},
 		{token.NUM, "2"},
+
+		{token.IDENT, "a"},
+		{token.AND, "&&"},
+		{token.IDENT, "b"},
+		{token.IDENT, "a"},
+		{token.OR, "||"},
+		{token.IDENT, "b"},
 
 		{token.EOF, ""},
 	}

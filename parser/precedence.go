@@ -5,6 +5,7 @@ import "github.com/darwin1224/saphire/token"
 const (
 	_ int = iota
 	LOWEST
+	LOGICAL
 	EQUALS
 	LESSGREATER
 	SUM
@@ -15,6 +16,8 @@ const (
 )
 
 var precedences = map[token.TokenType]int{
+	token.AND:      LOGICAL,
+	token.OR:       LOGICAL,
 	token.EQ:       EQUALS,
 	token.NOT_EQ:   EQUALS,
 	token.LT:       LESSGREATER,

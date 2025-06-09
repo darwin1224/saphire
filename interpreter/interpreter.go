@@ -184,6 +184,10 @@ func evalBinaryExpression(operator string, left, right object.Object) object.Obj
 		return boolToBooleanObject(left == right)
 	case operator == "!=":
 		return boolToBooleanObject(left != right)
+	case operator == "&&":
+		return evalLogicalExpression(left, right, AND)
+	case operator == "||":
+		return evalLogicalExpression(left, right, OR)
 	case left.Type() != right.Type():
 		return newError("type mismatch: %s %s %s", left.Type(), operator, right.Type())
 	default:
@@ -341,11 +345,44 @@ func evalHashIndexExpression(hash, index object.Object) object.Object {
 	return pair.Value
 }
 
+type logicalOperator int
+
+const (
+	AND logicalOperator = iota
+	OR
+)
+
+func (o logicalOperator) toSymbol() string {
+	return [...]string{"AND", "OR"}[o]
+}
+
+func evalLogicalExpression(left, right object.Object, operator logicalOperator) object.Object {
+	if left.Type() != object.BOOLEAN_OBJ || right.Type() != object.BOOLEAN_OBJ {
+		return newError("logical operator %s expects boolean operands, but got %s and %s", operator.toSymbol(), left.Type(), right.Type())
+	}
+
+	l := booleanObjectToBool(left)
+	r := booleanObjectToBool(right)
+
+	if operator == AND {
+		return boolToBooleanObject(l && r)
+	}
+	return boolToBooleanObject(l || r)
+}
+
 func boolToBooleanObject(input bool) *object.Boolean {
 	if input {
 		return TRUE
 	}
 	return FALSE
+}
+
+func booleanObjectToBool(obj object.Object) bool {
+	boolObj, ok := obj.(*object.Boolean)
+	if !ok {
+		return false
+	}
+	return boolObj.Value
 }
 
 func isTruthy(obj object.Object) bool {

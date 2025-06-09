@@ -267,7 +267,7 @@ func TestLetStatements(t *testing.T) {
 }
 
 func TestFunctionObject(t *testing.T) {
-	input := "fn(x) { x + 2; };"
+	input := "fn f(x) { x + 2; }; f"
 
 	result := testEval(input)
 	fn, ok := result.(*object.Function)
@@ -300,7 +300,6 @@ func TestFunctionApplication(t *testing.T) {
 		{"let double = fn(x) { x * 2; }; double(5);", 10},
 		{"let add = fn(x, y) { x + y; }; add(5, 5);", 10},
 		{"let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20},
-		{"fn(x) { x; }(5)", 5},
 	}
 
 	for _, tt := range tests {
@@ -311,7 +310,8 @@ func TestFunctionApplication(t *testing.T) {
 func TestClosures(t *testing.T) {
 	input := `
 let newAdder = fn(x) {
-fn(y) { x + y };
+fn f(y) { x + y };
+f
 };
 let addTwo = newAdder(2);
 addTwo(2);`

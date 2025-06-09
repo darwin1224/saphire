@@ -46,6 +46,10 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 
 		env.Set(node.Name.Value, val)
+	case *ast.FunctionStatement:
+		params := node.Parameters
+		body := node.Body
+		env.Set(node.Name.Value, &object.Function{Parameters: params, Env: env, Body: body})
 	case *ast.IfExpression:
 		return evalIfExpression(node, env)
 	case *ast.BlockStatement:

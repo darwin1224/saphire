@@ -246,6 +246,8 @@ func TestNextToken6(t *testing.T) {
 2 <= 5
 8 >= 1
 2 ** 2
+
+fn f(x) { x + 1 }
 `
 	tests := []struct {
 		expectedType    token.TokenType
@@ -276,6 +278,17 @@ func TestNextToken6(t *testing.T) {
 		{token.NUM, "2"},
 		{token.POWER, "**"},
 		{token.NUM, "2"},
+
+		{token.FUNCTION, "fn"},
+		{token.IDENT, "f"},
+		{token.LPAREN, "("},
+		{token.IDENT, "x"},
+		{token.RPAREN, ")"},
+		{token.LBRACE, "{"},
+		{token.IDENT, "x"},
+		{token.PLUS, "+"},
+		{token.NUM, "1"},
+		{token.RBRACE, "}"},
 
 		{token.EOF, ""},
 	}

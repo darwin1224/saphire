@@ -59,6 +59,8 @@ func New(lexer *lexer.Lexer) *Parser {
 	p.registerBinaryParser(token.GT, p.parseBinaryExpression)
 	p.registerBinaryParser(token.LTE, p.parseBinaryExpression)
 	p.registerBinaryParser(token.GTE, p.parseBinaryExpression)
+	p.registerBinaryParser(token.AND, p.parseBinaryExpression)
+	p.registerBinaryParser(token.OR, p.parseBinaryExpression)
 	p.registerBinaryParser(token.LPAREN, p.parseCallExpression)
 	p.registerBinaryParser(token.LBRACKET, p.parseIndexExpression)
 
@@ -165,14 +167,14 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	leftExp := unaryFn()
 
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-		binary := p.binaryParsers[p.peekToken.Type]
-		if binary == nil {
+		binaryFn := p.binaryParsers[p.peekToken.Type]
+		if binaryFn == nil {
 			return leftExp
 		}
 
 		p.nextToken()
 
-		leftExp = binary(leftExp)
+		leftExp = binaryFn(leftExp)
 	}
 
 	return leftExp

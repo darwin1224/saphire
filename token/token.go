@@ -29,6 +29,8 @@ const (
 	GTE      = ">="
 	EQ       = "=="
 	NOT_EQ   = "!="
+	AND      = "&&"
+	OR       = "||"
 
 	COMMA     = ","
 	SEMICOLON = ";"

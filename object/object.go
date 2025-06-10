@@ -7,21 +7,24 @@ import (
 	"strings"
 
 	"github.com/darwin1224/saphire/ast"
+	"github.com/darwin1224/saphire/code"
 )
 
 type ObjectType string
 
 const (
-	NUMBER_OBJ       ObjectType = "NUMBER"
-	BOOLEAN_OBJ      ObjectType = "BOOLEAN"
-	NIL_OBJ          ObjectType = "NIL"
-	RETURN_VALUE_OBJ ObjectType = "RETURN_VALUE"
-	ERROR_OBJ        ObjectType = "ERROR"
-	FUNCTION_OBJ     ObjectType = "FUNCTION"
-	STRING_OBJ       ObjectType = "STRING"
-	BUILTIN_OBJ      ObjectType = "BUILTIN"
-	ARRAY_OBJ        ObjectType = "ARRAY"
-	HASH_OBJ         ObjectType = "HASH"
+	NUMBER_OBJ            ObjectType = "NUMBER"
+	BOOLEAN_OBJ           ObjectType = "BOOLEAN"
+	NIL_OBJ               ObjectType = "NIL"
+	RETURN_VALUE_OBJ      ObjectType = "RETURN_VALUE"
+	ERROR_OBJ             ObjectType = "ERROR"
+	FUNCTION_OBJ          ObjectType = "FUNCTION"
+	STRING_OBJ            ObjectType = "STRING"
+	BUILTIN_OBJ           ObjectType = "BUILTIN"
+	ARRAY_OBJ             ObjectType = "ARRAY"
+	HASH_OBJ              ObjectType = "HASH"
+	COMPILED_FUNCTION_OBJ ObjectType = "COMPILED_FUNCTION_OBJ"
+	CLOSURE_OBJ           ObjectType = "CLOSURE"
 )
 
 type Object interface {
@@ -86,6 +89,23 @@ func (f *Function) Inspect() string {
 
 	return out.String()
 }
+
+type CompiledFunction struct {
+	Instructions  code.Instructions
+	NumLocals     int
+	NumParameters int
+}
+
+func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
+func (cf *CompiledFunction) Inspect() string  { return fmt.Sprintf("CompiledFunction[%p]", cf) }
+
+type Closure struct {
+	Fn   *CompiledFunction
+	Free []Object
+}
+
+func (c *Closure) Type() ObjectType { return CLOSURE_OBJ }
+func (c *Closure) Inspect() string  { return fmt.Sprintf("Closure[%p]", c) }
 
 type String struct {
 	Value string

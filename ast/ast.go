@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/darwin1224/saphire/token"
@@ -219,6 +220,7 @@ type FunctionLiteral struct {
 	Token      token.Token
 	Parameters []*Identifier
 	Body       *BlockStatement
+	Name       string
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}
@@ -229,6 +231,11 @@ func (fl *FunctionLiteral) String() string {
 	params := make([]string, 0)
 	for _, p := range fl.Parameters {
 		params = append(params, p.String())
+	}
+
+	out.WriteString(fl.TokenLiteral())
+	if fl.Name != "" {
+		out.WriteString(fmt.Sprintf("<%s>", fl.Name))
 	}
 
 	out.WriteString(fl.TokenLiteral())

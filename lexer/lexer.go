@@ -151,10 +151,12 @@ func (l *Lexer) skipWhitespace() {
 
 func (l *Lexer) skipComments() {
 	if l.ch == '/' && l.peekChar() == '/' {
-		for l.ch != '\n' {
+		for l.ch != '\n' && l.ch != 0 {
 			l.readChar()
 		}
-		l.readChar()
+		if l.ch == '\n' {
+			l.readChar()
+		}
 		l.skipWhitespace()
 
 		if l.ch == '/' {

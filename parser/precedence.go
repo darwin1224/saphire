@@ -10,6 +10,7 @@ const (
 	SUM
 	PRODUCT
 	UNARY
+	POWER
 	CALL
 	INDEX
 )
@@ -26,7 +27,7 @@ var precedences = map[token.TokenType]int{
 	token.SLASH:    PRODUCT,
 	token.MOD:      PRODUCT,
 	token.ASTERISK: PRODUCT,
-	token.POWER:    PRODUCT,
+	token.POWER:    POWER,
 	token.LPAREN:   CALL,
 	token.LBRACKET: INDEX,
 }

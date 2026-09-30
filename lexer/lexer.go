@@ -97,6 +97,9 @@ func (l *Lexer) NextToken() token.Token {
 	case '"':
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
+		if l.ch == 0 {
+			tok = token.Token{Type: token.ILLEGAL, Literal: "unterminated string"}
+		}
 	case '[':
 		tok = newToken(token.LBRACKET, l.ch)
 	case ']':
@@ -150,16 +153,11 @@ func (l *Lexer) skipWhitespace() {
 }
 
 func (l *Lexer) skipComments() {
-	if l.ch == '/' && l.peekChar() == '/' {
-		for l.ch != '\n' {
+	for l.ch == '/' && l.peekChar() == '/' {
+		for l.ch != '\n' && l.ch != 0 {
 			l.readChar()
 		}
-		l.readChar()
 		l.skipWhitespace()
-
-		if l.ch == '/' {
-			l.skipComments()
-		}
 	}
 }
 

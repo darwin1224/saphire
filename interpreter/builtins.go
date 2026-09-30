@@ -2,6 +2,7 @@ package interpreter
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/darwin1224/saphire/object"
 )
@@ -12,7 +13,6 @@ var builtins = map[string]*object.Builtin{
 	"last":  &object.Builtin{Fn: lastBuiltin},
 	"rest":  &object.Builtin{Fn: restBuiltin},
 	"push":  &object.Builtin{Fn: pushBuiltin},
-	"print": &object.Builtin{Fn: printBuiltin},
 }
 
 func lenBuiltin(args ...object.Object) object.Object {
@@ -102,9 +102,13 @@ func pushBuiltin(args ...object.Object) object.Object {
 	return &object.Array{Elements: newElements}
 }
 
-func printBuiltin(args ...object.Object) object.Object {
-	for _, arg := range args {
-		fmt.Println(arg.Inspect())
+func printBuiltin(out io.Writer) object.BuiltinFunction {
+	return func(args ...object.Object) object.Object {
+		for _, arg := range args {
+			if _, err := fmt.Fprintln(out, arg.Inspect()); err != nil {
+				return newError("print: %s", err)
+			}
+		}
+		return NIL
 	}
-	return NIL
 }

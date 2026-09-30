@@ -214,6 +214,10 @@ func (p *Parser) parseBinaryExpression(left ast.Expression) ast.Expression {
 	}
 
 	precedence := p.currPrecedence()
+	// Exponentiation associates to the right: 2 ** 3 ** 2 = 2 ** (3 ** 2).
+	if p.currTokenIs(token.POWER) {
+		precedence--
+	}
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
 
@@ -278,6 +282,9 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		}
 		p.nextToken()
 	}
+	if p.currTokenIs(token.EOF) {
+		p.errors = append(p.errors, "expected closing } before EOF")
+	}
 
 	return block
 }
@@ -308,16 +315,22 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		return identifiers
 	}
 
-	p.nextToken()
-
-	ident := &ast.Identifier{Token: p.currToken, Value: p.currToken.Literal}
-	identifiers = append(identifiers, ident)
-
-	for p.peekTokenIs(token.COMMA) {
-		p.nextToken()
-		p.nextToken()
+	names := make(map[string]bool)
+	for {
+		if !p.expectPeek(token.IDENT) {
+			return nil
+		}
+		if names[p.currToken.Literal] {
+			p.errors = append(p.errors, "duplicate parameter: "+p.currToken.Literal)
+			return nil
+		}
+		names[p.currToken.Literal] = true
 		ident := &ast.Identifier{Token: p.currToken, Value: p.currToken.Literal}
 		identifiers = append(identifiers, ident)
+		if !p.peekTokenIs(token.COMMA) {
+			break
+		}
+		p.nextToken()
 	}
 
 	if !p.expectPeek(token.RPAREN) {
@@ -385,7 +398,7 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 
 func (p *Parser) parseHashLiteral() ast.Expression {
 	hash := &ast.HashLiteral{Token: p.currToken}
-	hash.Pairs = make(map[ast.Expression]ast.Expression)
+	hash.Pairs = make([]ast.HashLiteralPair, 0)
 
 	for !p.peekTokenIs(token.RBRACE) {
 		p.nextToken()
@@ -398,7 +411,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 		p.nextToken()
 		value := p.parseExpression(LOWEST)
 
-		hash.Pairs[key] = value
+		hash.Pairs = append(hash.Pairs, ast.HashLiteralPair{Key: key, Value: value})
 
 		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
 			return nil
@@ -462,6 +475,10 @@ func (p *Parser) peekError(t token.TokenType) {
 }
 
 func (p *Parser) noUnaryParseFnError(t token.TokenType) {
+	if t == token.ILLEGAL {
+		p.errors = append(p.errors, "illegal token: "+p.currToken.Literal)
+		return
+	}
 	msg := fmt.Sprintf("no unary parse function for %s found", t)
 	p.errors = append(p.errors, msg)
 }

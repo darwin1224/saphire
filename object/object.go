@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"hash/fnv"
+	"math"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/darwin1224/saphire/ast"
@@ -34,7 +37,7 @@ type Number struct {
 }
 
 func (i *Number) Type() ObjectType { return NUMBER_OBJ }
-func (i *Number) Inspect() string  { return fmt.Sprintf("%.2f", i.Value) }
+func (i *Number) Inspect() string  { return strconv.FormatFloat(i.Value, 'g', -1, 64) }
 
 type Boolean struct {
 	Value bool
@@ -145,7 +148,12 @@ func (b *Boolean) HashKey() HashKey {
 }
 
 func (i *Number) HashKey() HashKey {
-	return HashKey{Type: i.Type(), Value: uint64(i.Value)}
+	value := i.Value
+	// Positive and negative zero compare equal and must address the same entry.
+	if value == 0 {
+		value = 0
+	}
+	return HashKey{Type: i.Type(), Value: math.Float64bits(value)}
 }
 
 func (s *String) HashKey() HashKey {
@@ -172,6 +180,7 @@ func (h *Hash) Inspect() string {
 	for _, pair := range h.Pairs {
 		pairs = append(pairs, fmt.Sprintf("%s: %s", pair.Key.Inspect(), pair.Value.Inspect()))
 	}
+	sort.Strings(pairs)
 
 	out.WriteString("{")
 	out.WriteString(strings.Join(pairs, ", "))

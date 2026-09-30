@@ -2,7 +2,9 @@ package interpreter
 
 import (
 	"fmt"
+	"io"
 	"math"
+	"os"
 
 	"github.com/darwin1224/saphire/ast"
 	"github.com/darwin1224/saphire/object"
@@ -14,51 +16,75 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
+// Interpreter owns the built-ins for one execution session.
+type Interpreter struct {
+	builtins map[string]*object.Builtin
+}
+
+// New creates an interpreter whose print built-in writes to out.
+func New(out io.Writer) *Interpreter {
+	if out == nil {
+		out = io.Discard
+	}
+	sessionBuiltins := make(map[string]*object.Builtin, len(builtins)+1)
+	for name, builtin := range builtins {
+		sessionBuiltins[name] = builtin
+	}
+	sessionBuiltins["print"] = &object.Builtin{Fn: printBuiltin(out)}
+	return &Interpreter{builtins: sessionBuiltins}
+}
+
+// Eval evaluates using standard output. Use New to supply a session output writer.
 func Eval(node ast.Node, env *object.Environment) object.Object {
+	return New(os.Stdout).Eval(node, env)
+}
+
+func (i *Interpreter) Eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
 	case *ast.Program:
-		return evalProgram(node, env)
+		return i.evalProgram(node, env)
 	case *ast.ExpressionStatement:
-		return Eval(node.Expression, env)
+		return i.Eval(node.Expression, env)
 	case *ast.UnaryExpression:
-		right := Eval(node.Right, env)
+		right := i.Eval(node.Right, env)
 		if isError(right) {
 			return right
 		}
 
 		return evalUnaryExpression(node.Operator, right)
 	case *ast.BinaryExpression:
-		left := Eval(node.Left, env)
+		left := i.Eval(node.Left, env)
 		if isError(left) {
 			return left
 		}
 
-		right := Eval(node.Right, env)
+		right := i.Eval(node.Right, env)
 		if isError(right) {
 			return right
 		}
 
 		return evalBinaryExpression(node.Operator, left, right)
 	case *ast.LetStatement:
-		val := Eval(node.Value, env)
+		val := i.Eval(node.Value, env)
 		if isError(val) {
 			return val
 		}
 
 		env.Set(node.Name.Value, val)
+		return NIL
 	case *ast.IfExpression:
-		return evalIfExpression(node, env)
+		return i.evalIfExpression(node, env)
 	case *ast.BlockStatement:
-		return evalBlockStatement(node, env)
+		return i.evalBlockStatement(node, env)
 	case *ast.ReturnStatement:
-		val := Eval(node.ReturnValue, env)
+		val := i.Eval(node.ReturnValue, env)
 		if isError(val) {
 			return val
 		}
 
 		return &object.ReturnValue{Value: val}
 	case *ast.Identifier:
-		return evalIdentifier(node, env)
+		return i.evalIdentifier(node, env)
 	case *ast.NumberLiteral:
 		return &object.Number{Value: node.Value}
 	case *ast.Boolean:
@@ -68,50 +94,50 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
 	case *ast.CallExpression:
-		function := Eval(node.Function, env)
+		function := i.Eval(node.Function, env)
 		if isError(function) {
 			return function
 		}
 
-		args := evalExpressions(node.Arguments, env)
+		args := i.evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
 
-		return applyFunction(function, args)
+		return i.applyFunction(function, args)
 	case *ast.StringLiteral:
 		return &object.String{Value: node.Value}
 	case *ast.ArrayLiteral:
-		elems := evalExpressions(node.Elements, env)
+		elems := i.evalExpressions(node.Elements, env)
 		if len(elems) == 1 && isError(elems[0]) {
 			return elems[0]
 		}
 
 		return &object.Array{Elements: elems}
 	case *ast.IndexExpression:
-		left := Eval(node.Left, env)
+		left := i.Eval(node.Left, env)
 		if isError(left) {
 			return left
 		}
 
-		index := Eval(node.Index, env)
+		index := i.Eval(node.Index, env)
 		if isError(index) {
 			return index
 		}
 
 		return evalIndexExpression(left, index)
 	case *ast.HashLiteral:
-		return evalHashLiteral(node, env)
+		return i.evalHashLiteral(node, env)
 	}
 
-	return nil
+	return NIL
 }
 
-func evalProgram(program *ast.Program, env *object.Environment) object.Object {
-	var result object.Object
+func (i *Interpreter) evalProgram(program *ast.Program, env *object.Environment) object.Object {
+	var result object.Object = NIL
 
 	for _, statement := range program.Statements {
-		result = Eval(statement, env)
+		result = i.Eval(statement, env)
 
 		switch result := result.(type) {
 		case *object.ReturnValue:
@@ -124,11 +150,11 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	return result
 }
 
-func evalBlockStatement(block *ast.BlockStatement, env *object.Environment) object.Object {
-	var result object.Object
+func (i *Interpreter) evalBlockStatement(block *ast.BlockStatement, env *object.Environment) object.Object {
+	var result object.Object = NIL
 
 	for _, statement := range block.Statements {
-		result = Eval(statement, env)
+		result = i.Eval(statement, env)
 
 		if result != nil {
 			rt := result.Type()
@@ -207,7 +233,10 @@ func evalNumberBinaryExpression(operator string, left, right object.Object) obje
 	case "/":
 		return &object.Number{Value: leftVal / rightVal}
 	case "%":
-		return &object.Number{Value: float64(int64(leftVal) % int64(rightVal))}
+		if rightVal == 0 {
+			return newError("modulo by zero")
+		}
+		return &object.Number{Value: math.Mod(leftVal, rightVal)}
 	case "<":
 		return boolToBooleanObject(leftVal < rightVal)
 	case ">":
@@ -235,39 +264,39 @@ func evalStringBinaryExpression(operator string, left, right object.Object) obje
 	return &object.String{Value: leftVal + rightVal}
 }
 
-func evalIfExpression(ie *ast.IfExpression, env *object.Environment) object.Object {
-	condition := Eval(ie.Condition, env)
+func (i *Interpreter) evalIfExpression(ie *ast.IfExpression, env *object.Environment) object.Object {
+	condition := i.Eval(ie.Condition, env)
 	if isError(condition) {
 		return condition
 	}
 
 	if isTruthy(condition) {
-		return Eval(ie.Consequence, env)
+		return i.Eval(ie.Consequence, env)
 	}
 	if ie.Alternative != nil {
-		return Eval(ie.Alternative, env)
+		return i.Eval(ie.Alternative, env)
 	}
 
 	return NIL
 }
 
-func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+func (i *Interpreter) evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
 	if val, ok := env.Get(node.Value); ok {
 		return val
 	}
 
-	if builtin, ok := builtins[node.Value]; ok {
+	if builtin, ok := i.builtins[node.Value]; ok {
 		return builtin
 	}
 
 	return newError("identifier not found: %s", node.Value)
 }
 
-func evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
+func (i *Interpreter) evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
 	var result []object.Object
 
 	for _, e := range exps {
-		evaluated := Eval(e, env)
+		evaluated := i.Eval(e, env)
 		if isError(evaluated) {
 			return []object.Object{evaluated}
 		}
@@ -293,17 +322,20 @@ func evalArrayIndexExpression(array, index object.Object) object.Object {
 	idx := index.(*object.Number).Value
 	max := float64(len(arrayObject.Elements) - 1)
 
+	if math.IsNaN(idx) || math.IsInf(idx, 0) || math.Trunc(idx) != idx {
+		return newError("array index must be a finite integer")
+	}
 	if idx < 0 || idx > max {
 		return NIL
 	}
 	return arrayObject.Elements[int64(idx)]
 }
 
-func evalHashLiteral(node *ast.HashLiteral, env *object.Environment) object.Object {
+func (i *Interpreter) evalHashLiteral(node *ast.HashLiteral, env *object.Environment) object.Object {
 	pairs := make(map[object.HashKey]object.HashPair)
 
-	for keyNode, valueNode := range node.Pairs {
-		key := Eval(keyNode, env)
+	for _, pair := range node.Pairs {
+		key := i.Eval(pair.Key, env)
 		if isError(key) {
 			return key
 		}
@@ -312,8 +344,11 @@ func evalHashLiteral(node *ast.HashLiteral, env *object.Environment) object.Obje
 		if !ok {
 			return newError("unusable as hash key: %s", key.Type())
 		}
+		if number, ok := key.(*object.Number); ok && math.IsNaN(number.Value) {
+			return newError("unusable as hash key: NaN")
+		}
 
-		value := Eval(valueNode, env)
+		value := i.Eval(pair.Value, env)
 		if isError(value) {
 			return value
 		}
@@ -331,6 +366,9 @@ func evalHashIndexExpression(hash, index object.Object) object.Object {
 	key, ok := index.(object.Hashable)
 	if !ok {
 		return newError("unusable as hash key: %s", index.Type())
+	}
+	if number, ok := index.(*object.Number); ok && math.IsNaN(number.Value) {
+		return newError("unusable as hash key: NaN")
 	}
 
 	pair, ok := hashObject.Pairs[key.HashKey()]
@@ -372,11 +410,14 @@ func isError(obj object.Object) bool {
 	return false
 }
 
-func applyFunction(fn object.Object, args []object.Object) object.Object {
+func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) object.Object {
 	switch fn := fn.(type) {
 	case *object.Function:
+		if len(args) != len(fn.Parameters) {
+			return newError("wrong number of arguments, got=%d, want=%d", len(args), len(fn.Parameters))
+		}
 		extendedEnv := extendFunctionEnv(fn, args)
-		evaluated := Eval(fn.Body, extendedEnv)
+		evaluated := i.Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 	case *object.Builtin:
 		return fn.Fn(args...)
@@ -397,7 +438,7 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 
 func unwrapReturnValue(obj object.Object) object.Object {
 	if returnValue, ok := obj.(*object.ReturnValue); ok {
-		return returnValue
+		return returnValue.Value
 	}
 	return obj
 }

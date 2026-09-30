@@ -29,19 +29,62 @@ saphire
 - Dynamic Typing
 - Strong Typing
 - Automatic memory management
-- String interpolation
+- String concatenation
 - Array built-ins
 - Hash map built-ins
 
 # TODO Features
 
 - Module System
+- String interpolation
 - Namespaces
 - Standard Library
 - Reflection
 - Native Concurrency
 - VM-based or Bytecode Interpreter
 - JIT Interpreter
+
+# Language behavior
+
+- Numbers use IEEE 754 double precision and print without rounding to two decimal
+  places. Very large or small values may print in scientific notation.
+- `**` binds more tightly than multiplication and unary minus, and associates to
+  the right: `2 * 3 ** 2` is `18`, `2 ** 3 ** 2` is `512`, and `-2 ** 2` is `-4`.
+- `%` computes a floating-point remainder with the sign of the dividend:
+  `5.5 % 2` is `1.5` and `-5.5 % 2` is `-1.5`. A zero divisor is a runtime error.
+  Division retains IEEE 754 behavior, including infinity and NaN.
+- Functions require exactly one argument per parameter. Parameters must be unique
+  identifiers. An empty body or a body ending with a declaration yields `nil`.
+- Array indexes must be finite integers. An out-of-bounds integer index yields
+  `nil`; fractional, infinite, and NaN indexes are runtime errors.
+- Hash entries evaluate in source order, with the last duplicate key winning.
+  Decimal numeric keys remain distinct; positive and negative zero address the
+  same entry. NaN cannot be used as a hash key.
+- Comments may end at EOF. Strings and blocks require closing delimiters.
+- Script errors print to stderr and exit with status `1`. Successful scripts exit
+  with status `0`. The REPL reports language errors and continues; input errors
+  end the session with a nonzero status. REPL lines must be smaller than 1 MiB.
+
+For embedding, use `interpreter.New(writer).Eval(program, environment)` to route
+`print` output to your writer. The package-level `interpreter.Eval` continues to
+use stdout. `repl.Start(reader, writer)` returns input or output errors.
+Hash literal AST entries are stored in `ast.HashLiteral.Pairs` as an ordered slice
+of `ast.HashLiteralPair` values, each with `Key` and `Value` expressions.
+
+# Development
+
+Use Go 1.24.2 or later:
+
+```bash
+go test -race -timeout 60s ./...
+go vet ./...
+go build ./...
+go test ./lexer -fuzz=FuzzLexerTerminates -fuzztime=10s
+go test ./parser -fuzz=FuzzParserDoesNotPanic -fuzztime=10s
+```
+
+GitHub Actions checks formatting, static analysis, tests, and builds on pushes and
+pull requests.
 
 # Examples
 
@@ -103,7 +146,7 @@ let pi = generatePi(N)
 
 print(pi)
 
-// Output: 3.14159265334054182972
+// Output: 3.141592653340542
 ```
 
 ## Generate Euler number $e$
@@ -162,5 +205,5 @@ let e = generateE(N)
 
 print(e)
 
-// Output: 2.71828182845904509080
+// Output: 2.718281828459045
 ```
